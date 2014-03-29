@@ -1,0 +1,56 @@
+/*get the study basics*/
+program studybasics
+	/*inputs: totalsize studynum minsize caseprob*/	
+	/*SET SIZE*/
+	/*total size*/
+	scalar totalsize=`1'
+	/*number of studies*/
+	scalar studynum=`2'
+	/*variability in study size (meansize automatically computed and from that the maximum - only minimum needs to be inputted - uniform distribution)*/
+	scalar minsize=`3'
+	scalar meansize=totalsize/studynum
+	scalar maxsize=2*meansize-minsize
+	/*generate uniformly distributed study sizes [minsize-maxsize] - repeat until the last study (not random) is within the desired range*/
+	scalar bool1=0
+	while bool1==0 {
+		scalar tsize=0
+		forvalues i=1(1)`=studynum-1'{
+			scalar stsize`i' = minsize+int((maxsize-minsize+1)*runiform())
+			scalar tsize = tsize + stsize`i'
+		}
+		scalar stsize`=studynum'=totalsize-tsize
+		if stsize`=studynum'>=minsize & stsize`=studynum'<=maxsize {
+			scalar bool1 = 1
+		}
+	}
+	/*set balanced-unbalanced design - proportion of intervention group*/
+	scalar caseprob=`4'
+	forvalues i=1(1)`=studynum'{
+		scalar stisize`i'=int(caseprob*stsize`i')
+		scalar stcsize`i'=int((1-caseprob)*stsize`i')
+		/*add the potential extra randomly if needed*/
+		if stisize`i'+stcsize`i'<stsize`i' {
+			if runiform()<=0.5 {
+				scalar stisize`i'=stisize`i'+1
+			}
+			else {
+				scalar stcsize`i'=stcsize`i'+1
+			}
+		}
+	}
+	/*start generating the dataset - groups*/
+	qui clear
+	qui set obs `=totalsize'
+	/*generate overall identifier*/
+	qui egen id = seq()
+	/*study identifier*/
+	qui gen studyid=.
+	qui gen grp=0	
+	scalar tsize=0
+	forvalues i=1(1)`=studynum'{
+		qui replace studyid=`i' if id>tsize
+		/*group identifier allocation*/
+		qui replace grp=1 if studyid==`i' & id<=tsize+stisize`i'
+		scalar tsize=tsize+stsize`i'
+	}
+end
